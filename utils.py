@@ -33,7 +33,7 @@ def customer_text(c: CustomerInfo) -> str:
     
     # Tell about career stage
     #if str(occupation).upper() == 'RETIREE':
-        text+=f'{pronounce} is retired. '
+        # text+=f'{pronounce} is retired. '
     
     
     # if str(occupation_field).lower() in ['student', 'unemployed', 'retired']:

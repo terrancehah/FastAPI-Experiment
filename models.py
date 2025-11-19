@@ -12,5 +12,5 @@ class CustomerInfo(BaseModel):
     income: float
     age: int
     insurance_type: Optional[str] = None
-    insurance_coverage: Optional[str] = None
+    insurance_coverage: Optional[float] = None
 

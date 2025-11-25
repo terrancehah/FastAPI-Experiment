@@ -99,8 +99,9 @@ def create_persona_prompt(text_summary: str) -> str:
 
         Customer Information: {text_summary}
 
-        Based on the information above, generate a single-paragraph persona summary (maximum 400 words). Describe the customer’s possible personality, 
-        interests, lifestyle outlook, and life vision. From this persona, infer potential insurance product needs, including saving, medical, legacy, investment, education, 
+        Based on the information above, generate a single-paragraph persona summary (maximum 400 words). 
+        Describe the customer’s possible personality, interests, lifestyle outlook, and life vision. 
+        From this persona, infer potential insurance product needs, including saving, medical, legacy, investment, education, 
         and retirement solutions, and explain the rationale for each within the same paragraph.
         
         Apply this takaful preference rule:

@@ -201,8 +201,8 @@
 </head>
 <body>
     <div class="form-container">
-        <h1>Student Persona Generator</h1>
-        <p class="form-description">Help us understand your study preferences better by providing the following information. Fields marked with <span style="color: #dc3545;">*</span> are required.</p>
+        <h1>Customer Persona Generator</h1>
+        <p class="form-description">Help us understand your customer better by providing the following information. Fields marked with <span style="color: #dc3545;">*</span> are required.</p>
         
         <form action="/persona/" method="post">
             <!-- Name Field -->
@@ -211,11 +211,11 @@
                     Full Name<span class="required-indicator">*</span>
                     <span class="info-icon">
                         i
-                        <span class="tooltip">Enter your full name</span>
+                        <span class="tooltip">Enter customer's full legal name</span>
                     </span>
                 </label>
-                <input type="text" id="name" name="name" placeholder="e.g., Terrance Hah" required>
-                <!-- <div class="help-text">Please provide your complete name</div> -->
+                <input type="text" id="name" name="name" placeholder="e.g., John Smith" required>
+                <div class="help-text">Please provide the customer's complete name</div>
             </div>
             
             <!-- Gender Field -->
@@ -224,139 +224,124 @@
                     Gender<span class="required-indicator">*</span>
                     <span class="info-icon">
                         i
-                        <span class="tooltip">Select your gender</span>
+                        <span class="tooltip">Select the customer's gender identity</span>
                     </span>
                 </label>
                 <select id="gender" name="gender" required>
                     <option value="">-- Please select --</option>
                     <option value="male">Male</option>
                     <option value="female">Female</option>
+                    <option value="other">Other</option>
                 </select>
             </div>
             
-            <!-- Form Field -->
+            <!-- Age Field -->
             <div class="form-group">
-                <label for="form">
-                    Form<span class="required-indicator">*</span>
+                <label for="age">
+                    Age<span class="required-indicator">*</span>
                     <span class="info-icon">
                         i
                         <span class="tooltip">Customer's current age in years</span>
                     </span>
                 </label>
-                <select id="form" name="form" required>
-                    <option value="">-- Please select --</option>
-                    <option value="peralihan">Peralihan</option>
-                    <option value="form1">Form 1</option>
-                    <option value="form2">Form 2</option>
-                    <option value="form3">Form 3</option>
-                    <option value="form4">Form 4</option>
-                    <option value="form5">Form 5</option>
-                </select>
-                <!-- <div class="help-text">Select form</div> -->
+                <input type="number" id="age" name="age" placeholder="e.g., 35" min="18" max="120" required>
+                <div class="help-text">Enter age between 18-120 years</div>
             </div>
             
-            <!-- School Field -->
+            <!-- Occupation Field -->
             <div class="form-group">
-                <label for="school">
-                    School<span class="required-indicator">*</span>
+                <label for="occupation">
+                    Occupation<span class="required-indicator">*</span>
                     <span class="info-icon">
                         i
-                        <span class="tooltip">Your school</span>
+                        <span class="tooltip">Customer's current job title or role</span>
                     </span>
                 </label>
-                <input type="text" id="school" name="school" placeholder="e.g., SMK Taman Connaught" required>
-                <div class="help-text">Specify your school</div>
+                <input type="text" id="occupation" name="occupation" placeholder="e.g., Software Engineer, Teacher" required>
+                <div class="help-text">Specify the customer's job title or profession</div>
             </div>
             
-            <!-- Preferred Language Field -->
+            <!-- Occupation Field -->
             <div class="form-group">
-                <label for="preferred_language">
-                    Preferred Language<span class="required-indicator">*</span>
+                <label for="occupation_field">
+                    Occupation Field<span class="required-indicator">*</span>
                     <span class="info-icon">
                         i
-                        <span class="tooltip">Your preferred language</span>
+                        <span class="tooltip">Industry or sector of employment</span>
                     </span>
                 </label>
-                <select id="preferred_language" name="preferred_language" required>
-                    <option value="">-- Please select --</option>
-                    <option value="english">English</option>
-                    <option value="malay">Malay</option>
-                    <option value="mandarin">Mandarin</option>
-                </select>
-                <div class="help-text">Select your preferred language</div>
+                <input type="text" id="occupation_field" name="occupation_field" placeholder="e.g., Technology, Education, Healthcare" required>
+                <div class="help-text">Enter the industry or field they work in</div>
             </div>
             
-            <!-- Preferred Subjects Field -->
+            <!-- Income Field -->
+            <div class="form-group">
+                <label for="income">
+                    Monthly Income (RM)<span class="required-indicator">*</span>
+                    <span class="info-icon">
+                        i
+                        <span class="tooltip">Total monthly income in Malaysian Ringgit</span>
+                    </span>
+                </label>
+                <input type="number" id="income" name="income" placeholder="e.g., 3500" step="100" min="1700" required>
+                <div class="help-text">Enter monthly gross income in Malaysian Ringgit (RM)</div>
+            </div>
+            
+            <!-- Insurance Type Field (Optional) -->
             <div class="form-group">
                 <label>
-                    Preferred Subjects<span class="required-indicator">*</span>
+                    Insurance Type<span class="optional-badge">Optional</span>
                     <span class="info-icon">
                         i
-                        <span class="tooltip">Your preferred subjects</span>
+                        <span class="tooltip">Type of insurance the customer has or needs</span>
                     </span>
                 </label>
                 <div class="help-text" style="margin-bottom: 8px;">Select all that apply</div>
-                <div class="checkbox-group" id="study-checkbox-group">
+                <div class="checkbox-group" id="insurance-checkbox-group">
                     <!-- Checkboxes will be generated by JavaScript -->
                 </div>
             </div>
-
-            <!-- Study Frequency Field -->
+            
+            <!-- Insurance Coverage Field (Optional) -->
             <div class="form-group">
-                <label for="study_frequency">
-                    Study Frequency<span class="required-indicator">*</span>
+                <label for="insurance_coverage">
+                    Insurance Coverage (RM)<span class="optional-badge">Optional</span>
                     <span class="info-icon">
                         i
-                        <span class="tooltip">Your study frequency per week</span>
+                        <span class="tooltip">Coverage amount in Malaysian Ringgit (numbers only)</span>
                     </span>
                 </label>
-                <select id="study_frequency" name="study_frequency" required>
-                    <option value="">-- Please select --</option>
-                    <option value="daily">Daily</option>
-                    <option value="monthly">4-6 days per week</option>
-                    <option value="weekly">2-3 days per week</option>
-                    <option value="monthly">0-1 days per week</option>
-                </select>
-                <div class="help-text">Select your study frequency</div>
+                <input type="number" id="insurance_coverage" name="insurance_coverage" placeholder="e.g., 100000" step="1000" min="0">
+                <div class="help-text">Enter coverage amount in RM (numbers only, e.g., 100000 for RM100,000)</div>
             </div>
             
-            <button type="submit">Generate Student Persona</button>
+            <button type="submit">Generate Customer Persona</button>
             
             <div class="form-footer">
-                🔒 Your information is secure and will only be used to generate a persona regarding your education needs
+                🔒 Your information is secure and will only be used to generate a customer persona
             </div>
         </form>
     </div>
 
     <script>
-        // Preferred subjects configuration
-        const preferredSubjects = [
-            { id: 'bahasamelayu', label: 'Bahasa Melayu', value: 'Bahasa Melayu' },
-            { id: 'english', label: 'English', value: 'English' },
-            { id: 'bahasacina', label: 'Bahasa Cina', value: 'Bahasa Cina' },
-            { id: 'science', label: 'Science', value: 'Science' },
-            { id: 'mathematics', label: 'Mathematics', value: 'Mathematics' },
-            { id: 'geography', label: 'Geography', value: 'Geography' },
-            { id: 'history', label: 'History', value: 'History' },
-            { id: 'biology', label: 'Biology', value: 'Biology' },
-            { id: 'chemistry', label: 'Chemistry', value: 'Chemistry' },
-            { id: 'physics', label: 'Physics', value: 'Physics' },
-            { id: 'moral', label: 'Moral Education', value: 'Moral Education' },
-            { id: 'art', label: 'Art', value: 'Art' },
-            { id: 'physical', label: 'Physical Education', value: 'Physical Education' },
-            { id: 'ict', label: 'Information and Communication Technology', value: 'Information and Communication Technology' },
-            { id: 'accounting', label: 'Accounting', value: 'Accounting' },
-            { id: 'economics', label: 'Economics', value: 'Economics' }
+        // Insurance types configuration
+        const insuranceTypes = [
+            { id: 'life', label: 'Life Insurance', value: 'Life Insurance' },
+            { id: 'health', label: 'Health Insurance', value: 'Health Insurance' },
+            { id: 'motor', label: 'Motor Insurance', value: 'Motor Insurance' },
+            { id: 'education', label: 'Education Insurance', value: 'Education Insurance' },
+            { id: 'retirement', label: 'Retirement Insurance', value: 'Retirement Insurance' },
+            { id: 'other', label: 'Other', value: 'Other' }
         ];
 
         // Generate checkboxes dynamically
-        const checkboxGroup = document.getElementById('study-checkbox-group');
-        preferredSubjects.forEach(subject => {
+        const checkboxGroup = document.getElementById('insurance-checkbox-group');
+        insuranceTypes.forEach(type => {
             const div = document.createElement('div');
             div.className = 'checkbox-item';
             div.innerHTML = `
-                <input type="checkbox" id="study_${subject.id}" name="favourite_subjects" value="${subject.value}">
-                <label for="study_${subject.id}">${subject.label}</label>
+                <input type="checkbox" id="insurance_${type.id}" name="insurance_type" value="${type.value}">
+                <label for="insurance_${type.id}">${type.label}</label>
             `;
             
             // Make entire div clickable

@@ -1,79 +1,77 @@
 from pydantic import BaseModel
 from typing import Optional
+from models import StudentInfo
+from datetime import datetime
 
-from models import CustomerInfo
-
-# ----------------------
-# Functions
-# ----------------------
-def customer_text(c: CustomerInfo) -> str:
-    
-    '''
+def student_text(c: StudentInfo) -> str:
+    """
     Default values if not provided:
     gender -> 'UNDISCLOSED'
     occupation -> 'UNDISCLOSED'
     occupation_field -> 'UNDISCLOSED'
     income -> 'UNDISCLOSED'
-    age -> 'UNDISCLOSED'
-    insurance_type-> 'UNDISCLOSED'
-    insurance_coverage -> 'UNDISCLOSED'
-    
-    '''
-    # Tell about pronouns
-    if isinstance(c.gender, str):
-        gender = c.gender.lower();
-    else:
-        gender = 'other'
-    if gender == 'male':
-        pronounce = 'he'
-        pronounce2 = 'his'
-    elif gender == 'female':
-        pronounce = 'she'
-        pronounce2 = 'her'
-    
-    # Tell about career stage
-    #if str(occupation).upper() == 'RETIREE':
-        # text+=f'{pronounce} is retired. '
-    
-    
-    # if str(occupation_field).lower() in ['student', 'unemployed', 'retired']:
-    #     occupation_field = 'N/A' 
-    # else:
-    #     occupation_field = c.occupation_field
-    
-    
-#def infer_career_stage(occupation: str, age: int) -> str:occupation = (occupation or "").lower()
+    form -> 'UNDISCLOSED'
+    school -> 'UNDISCLOSED'
+    preferred_language -> 'UNDISCLOSED'
+    favourite_subjects -> 'UNDISCLOSED'
+    study_frequency -> 'UNDISCLOSED'
+    """
 
-        # Career based rules
-    
-    if c.insurance_type and c.insurance_coverage:
-        insurance = f"Currently, {pronounce} has active insurance {c.insurance_type} with coverage {c.insurance_coverage}."
-    elif c.insurance_type:
-        insurance = f"Currently, {pronounce} has active insurance {c.insurance_type}."
+    # gender
+    gender = (c.gender or "UNDISCLOSED").lower()
+    if gender == "male":
+        pronoun = "he"
+        pronoun2 = "his"
+    elif gender == "female":
+        pronoun = "she"
+        pronoun2 = "her"
     else:
-        insurance = f"Currently, {pronounce} has no active insurance."
+        pronoun = "they"
+        pronoun2 = "their"
 
-    return (
-        f"{c.name} is a {c.gender} aged {c.age}, working as {c.occupation} in {c.occupation_field}. "
-        f"{pronounce2.capitalize()}'s income is {c.income}. {insurance}"
+    intro = (
+        f"{c.name} is a {c.gender} student in {c.form}. "
+        f"{pronoun.capitalize()} is currently studying in {c.school}."
     )
+
+    # favourite subjects
+    favourite_subjects = ""
+    if c.favourite_subjects:
+        favourite_subjects = f" {pronoun.capitalize()} likes {', '.join(c.favourite_subjects)} subjects."
+    
+    # study frequency
+    study_frequency = ""
+    if c.study_frequency:
+        study_frequency = f" {pronoun.capitalize()} studies {c.study_frequency}."
+    
+    # preferred language
+    preferred_language = ""
+    if c.preferred_language:
+        preferred_language = f" {pronoun.capitalize()} prefers {c.preferred_language} as the preferred language."
+    
+    # final
+    paragraph = intro + favourite_subjects + study_frequency + preferred_language
+    return paragraph
 
 
 def create_persona_prompt(text_summary: str) -> str:
     return f"""
-You are an expert insurance advisor creating a customer persona to assess insurance needs.
-Customer Information: {text_summary}
+        
+        You are an expert tutor creating a student persona to assess education needs.
 
-Based on this, generate a detailed persona summary explain the persona personality, interest, possible life vision, personality, interest, possible life vision,
-with potential insurance product needs such as saving, medical, legacy, investment, education, and retirement
-and rationales for each. Conclude also on takaful preference. 
+        Student Information: {text_summary}
 
-Based on product holdings, if all the product is takaful and customer is Malay or Islam then we can conclude the customer prefer takaful product. 
-Else if customer has no takaful product or not Malay or not Muslim, customer is okay with no takaful product.
+        Based on the information above, generate a single-paragraph persona summary (maximum 400 words). 
+        Describe the student’s possible personality, study preferences and life vision. 
+        From this persona, infer potential learning preferences with the famous 6-types of learning styles,
+        Feynman, Mnemonic, Visualisation, Contextual, Key points, and Repitition Learning Methods.
+        Explain the rationale for each within the same paragraph.
+        
+        Apply this preferred language rule:
+        - If the student's name is in Malay and studying in SMK, conclude that the student has already mastered Malay as the studying language.
+        - Otherwise, conclude that the student is open to non-takaful or conventional products.
 
-Also list out active and non-active insurance product the customer have.
-
-Side Note: Product Smart Golden Life can be consider as type retirement and type saving.
-
-Limit it to 400 words. Make it in one paragraph essay, no bullet point. Return in English language only.
-"""
+        Do not use bullet points or separate sections. 
+        Produce the output in English only, and do not add information not present in the customer data.
+        
+        """

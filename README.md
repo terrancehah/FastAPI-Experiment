@@ -1,22 +1,31 @@
 # Student Persona Generator
 
-A FastAPI application that generates detailed student personas using AI (OpenAI GPT). It collects student information via a web form and uses LangChain to generate a narrative persona.
+A FastAPI application that generates detailed student personas using AI (OpenAI GPT). 
+It collects student information via a web form and uses LangChain to generate a narrative persona.
+**Langfuse** is integrated for monitoring and tracing LLM executions.
 
 ## Setup & Running
 
 1.  **Activate Virtual Environment**
-
     ```bash
     source venv/bin/activate
     ```
 
-2.  **Install Dependencies** (if not already installed)
-
+2.  **Install Dependencies**
     ```bash
     pip install -r requirements.txt
     ```
 
-3.  **Run the Application**
+3.  **Environment Setup**
+    Create a `.env` file with your API keys:
+    ```env
+    OPENAI_API_KEY=...
+    LANGFUSE_SECRET_KEY=...
+    LANGFUSE_PUBLIC_KEY=...
+    LANGFUSE_HOST=https://cloud.langfuse.com
+    ```
+
+4.  **Run the Application**
     ```bash
     uvicorn main:app --reload
     ```

@@ -61,17 +61,16 @@ def create_persona_prompt(text_summary: str) -> str:
 
         Student Information: {text_summary}
 
-        Based on the information above, generate a single-paragraph persona summary (maximum 400 words). 
-        Describe the student’s possible personality, study preferences and life vision. 
-        From this persona, infer potential learning preferences with the famous 6-types of learning styles,
+        Based on the information above, generate a student persona summary. 
+        Describe the student’s possible personality, study preferences and life vision in one concise paragraph. 
+        Then from this persona, infer potential learning preferences with the famous 6-types of learning styles,
         Feynman, Mnemonic, Visualisation, Contextual, Key points, and Repitition Learning Methods.
-        Explain the rationale for each within the same paragraph.
+        Explain the rationale and proper examples for each learning method in suitable headings and paragraphs.
         
-        Apply this preferred language rule:
-        - If the student's name is in Malay and studying in SMK, conclude that the student has already mastered Malay as the studying language.
-        - Otherwise, conclude that the student is open to non-takaful or conventional products.
+        Apply this preferred rule if conditions are met:
+        - If the student's name is in Malay and studying in SMK, conclude that Malay is the studying language.
+        - Otherwise, conclude that Malay is not the primary studying language.
 
-        Do not use bullet points or separate sections. 
-        Produce the output in English only, and do not add information not present in the customer data.
+        Produce the output in English only, and do not add information not present in the student data.
         
         """

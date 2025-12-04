@@ -74,3 +74,23 @@ def create_persona_prompt(text_summary: str) -> str:
         Produce the output in English only, and do not add information not present in the student data.
         
         """
+
+# List of subjects for the form
+SUBJECTS_LIST = [
+    {"id": "bahasamelayu", "label": "Bahasa Melayu", "value": "Bahasa Melayu"},
+    {"id": "english", "label": "English", "value": "English"},
+    {"id": "bahasacina", "label": "Bahasa Cina", "value": "Bahasa Cina"},
+    {"id": "science", "label": "Science", "value": "Science"},
+    {"id": "mathematics", "label": "Mathematics", "value": "Mathematics"},
+    {"id": "geography", "label": "Geography", "value": "Geography"},
+    {"id": "history", "label": "History", "value": "History"},
+    {"id": "biology", "label": "Biology", "value": "Biology"},
+    {"id": "chemistry", "label": "Chemistry", "value": "Chemistry"},
+    {"id": "physics", "label": "Physics", "value": "Physics"},
+    {"id": "moral", "label": "Moral Education", "value": "Moral Education"},
+    {"id": "art", "label": "Art", "value": "Art"},
+    {"id": "physical", "label": "Physical Education", "value": "Physical Education"},
+    {"id": "ict", "label": "Information and Communication Technology", "value": "Information and Communication Technology"},
+    {"id": "accounting", "label": "Accounting", "value": "Accounting"},
+    {"id": "economics", "label": "Economics", "value": "Economics"},
+]

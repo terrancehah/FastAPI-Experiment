@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request, Form
+from fastapi import FastAPI, Request, Form, Query
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse, StreamingResponse
 from langchain_core.prompts import PromptTemplate
@@ -11,11 +11,8 @@ import json
 from datetime import datetime
 from typing import List, Optional
 from langchain_core.callbacks import AsyncCallbackHandler
-
-
 from models import StudentInfo
-# from utils import customer_text, create_persona_prompt
-from utils import student_text, create_persona_prompt
+from utils import student_text, create_persona_prompt, SUBJECTS_LIST
 
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
@@ -38,7 +35,10 @@ llm = ChatOpenAI(
 
 @app.get("/", response_class=HTMLResponse)
 async def show_form(request: Request):
-    return templates.TemplateResponse("form.html", {"request": request})
+    return templates.TemplateResponse("form.html", {
+        "request": request,
+        "subjects": SUBJECTS_LIST
+    })
 
 class SimpleStreamingCallback(AsyncCallbackHandler):
     """Minimal callback for stage indicators"""
@@ -83,6 +83,210 @@ class SimpleStreamingCallback(AsyncCallbackHandler):
             'message': 'Complete!',
             'elapsed': elapsed
         })
+
+# ----------------------
+# HTMX Streaming Endpoints
+# ----------------------
+@app.get("/persona/htmx-setup", response_class=HTMLResponse)
+async def htmx_setup(
+    request: Request,
+    name: str = Query(...),
+    gender: str = Query(...),
+    form: str = Query(...),
+    school: str = Query(...),
+    preferred_language: str = Query(...),
+    favourite_subjects: Optional[List[str]] = Query(None),
+    study_frequency: str = Query(...)
+):
+    # Construct the query string for the stream
+    from urllib.parse import urlencode
+    
+    params = {
+        "name": name,
+        "gender": gender,
+        "form": form,
+        "school": school,
+        "preferred_language": preferred_language,
+        "study_frequency": study_frequency
+    }
+    
+    # Helper to build URL with list params
+    query_string = urlencode(params)
+    if favourite_subjects:
+        for subject in favourite_subjects:
+            query_string += f"&favourite_subjects={subject}"
+            
+    stream_url = f"/persona/stream-htmx?{query_string}"
+    
+    return f"""
+    <div class="results-container show" id="resultsContainer">
+        <div id="successContainer" style="display: block;">
+            <div class="success-badge" id="successBadge" style="display: none;">✓</div>
+            <h1 id="resultTitle">Generating Student Persona...</h1>
+            
+            <!-- SSE Connection Container -->
+            <div hx-ext="sse" sse-connect="{stream_url}">
+            
+                <!-- Summary Section -->
+                <div class="result-section" id="summarySection" style="display: none;" sse-swap="summary">
+                    <div class="result-section-title">Student Summary</div>
+                    <div class="result-section-content student-summary"></div>
+                </div>
+
+                <!-- Status Indicator -->
+                <div class="status-indicator-container" id="statusIndicatorContainer" sse-swap="stage">
+                    <div class="status-icon pulse">📤</div>
+                    <div class="status-message">Initializing stream...</div>
+                    <div class="status-detail">Preparing connection...</div>
+                </div>
+                
+                <!-- Persona Result -->
+                <div class="result-section">
+                    <div class="result-section-title">AI-Generated Persona & Learning Recommendations</div>
+                    <div class="result-section-content persona-result">
+                        <span id="personaContent" sse-swap="token" hx-swap="beforeend"></span>
+                        <span class="typing-cursor" id="typingCursor"></span>
+                    </div>
+                </div>
+                
+                <!-- Completion Signal -->
+                <div sse-swap="done" hx-swap="innerHTML"></div>
+                
+                <!-- Error Signal -->
+                <div sse-swap="error" hx-swap="innerHTML"></div>
+                
+            </div>
+            
+            <button class="btn-restart" onclick="window.location.reload()" id="restartBtn" style="display: none;">Generate Another Persona</button>
+        </div>
+    </div>
+    """
+
+@app.get("/persona/stream-htmx")
+@observe()
+async def generate_persona_stream_htmx(
+    request: Request,
+    name: str = Query(...),
+    gender: str = Query(...),
+    form: str = Query(...),
+    school: str = Query(...),
+    preferred_language: str = Query(...),
+    favourite_subjects: Optional[List[str]] = Query(None),
+    study_frequency: str = Query(...)
+):
+    async def generate_stream():
+        try:
+            # Yield initial stage
+            yield """event: stage
+data: <div class="status-icon rotate">🔄</div><div class="status-message">Processing student information...</div><div class="status-detail">Analyzing profile...</div>
+
+"""
+            
+            subjects_list = favourite_subjects or []
+            student = StudentInfo(
+                name=name,
+                gender=gender,
+                form=form,
+                school=school,
+                preferred_language=preferred_language,
+                favourite_subjects=subjects_list,
+                study_frequency=study_frequency
+            )
+            
+            text_summary = student_text(student)
+            
+            # Yield summary
+            yield f"""event: summary
+data: <div class="result-section-title">Student Summary</div><div class="result-section-content student-summary">{text_summary}</div>
+<script>document.getElementById('summarySection').style.display='block';</script>
+
+"""
+            
+            event_queue = asyncio.Queue()
+            callback = SimpleStreamingCallback(event_queue)
+            
+            prompt_str = create_persona_prompt(text_summary)
+            chain = PromptTemplate.from_template(prompt_str) | llm
+            
+            async def run_chain():
+                try:
+                    async for _ in chain.astream(
+                        {"text_summary": text_summary},
+                        config={'callbacks': [callback]}
+                    ):
+                        pass
+                except Exception as e:
+                    await event_queue.put({'type': 'error', 'message': str(e)})
+
+            task = asyncio.create_task(run_chain())
+            
+            while not task.done() or not event_queue.empty():
+                try:
+                    event = await asyncio.wait_for(event_queue.get(), timeout=0.1)
+                    
+                    if event['type'] == 'token':
+                        content = event['content'].replace('\n', '<br>')
+                        yield f"event: token\ndata: {content}\n\n"
+                        
+                    elif event['type'] == 'stage':
+                        stage = event['stage']
+                        msg = event.get('message', '')
+                        
+                        if stage == 'thinking':
+                            yield f"""event: stage
+data: <div class="status-icon pulse">🧠</div><div class="status-message">{msg}</div>
+
+"""
+                        elif stage == 'streaming':
+                            yield f"""event: stage
+data: <div class="status-icon pulse">⚡</div><div class="status-message">{msg}</div>
+
+"""
+                        elif stage == 'complete':
+                            elapsed = event.get('elapsed', 0)
+                            timestamp = datetime.now().strftime("%B %d, %Y at %I:%M %p")
+                            
+                            yield f"""event: stage
+data: <div class="status-icon complete">✅</div><div class="status-message">Complete!</div><div class="status-detail">Generated in {elapsed:.1f}s</div>
+
+"""
+                            yield f"""event: done
+data: <div class="result-timestamp">Generated on {timestamp}</div><script>document.getElementById('successBadge').style.display='block';document.getElementById('restartBtn').style.display='block';document.getElementById('typingCursor').style.display='none';document.getElementById('resultTitle').innerText='Student Persona Generated Successfully';</script>
+
+"""
+                            break
+                            
+                    elif event['type'] == 'error':
+                         yield f"""event: error
+data: <div class="error-container"><div class="error-title">Error</div><div class="error-message">{event['message']}</div></div>
+
+"""
+                         break
+                        
+                except asyncio.TimeoutError:
+                    continue
+                except Exception as e:
+                    yield f"""event: error
+data: Error: {str(e)}
+
+"""
+                    break
+                    
+        except Exception as e:
+            yield f"""event: error
+data: Error: {str(e)}
+
+"""
+
+    return StreamingResponse(
+        generate_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"
+        }
+    )
 
 # ----------------------
 # Streaming Endpoint

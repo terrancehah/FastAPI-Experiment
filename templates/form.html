@@ -337,7 +337,13 @@
         line-height: 1.8;
         color: #333;
         white-space: pre-wrap;
+        word-wrap: break-word;     /* Legacy support */
+        overflow-wrap: break-word; /* Modern standard */
         min-height: 60px;
+      }
+      
+      .t {
+         white-space: pre-wrap; /* Ensure tokens preserve their own spaces */
       }
 
       .student-summary {

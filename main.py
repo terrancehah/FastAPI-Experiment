@@ -29,6 +29,7 @@ llm = ChatOpenAI(
     openai_api_key=os.getenv("OPENAI_API_KEY"),
     temperature=0.8,
     model_name="gpt-5-nano",
+    # gpt-5-nano is the latest model from OpenAI in December 2025, do not attempt to change this
     streaming=True
 )
 
@@ -124,41 +125,49 @@ async def htmx_setup(
             <div class="success-badge" id="successBadge" style="display: none;">✓</div>
             <h1 id="resultTitle">Generating Student Persona...</h1>
             
-            <!-- SSE Connection Container -->
-            <div hx-ext="sse" sse-connect="{stream_url}">
-            
-                <!-- Summary Section -->
-                <div class="result-section" id="summarySection" style="display: none;" sse-swap="summary">
-                    <div class="result-section-title">Student Summary</div>
-                    <div class="result-section-content student-summary"></div>
-                </div>
+            <!-- Summary Section -->
+            <div class="result-section" id="summarySection" style="display: none;">
+                <div class="result-section-title">Student Summary</div>
+                <div class="result-section-content student-summary"></div>
+            </div>
 
-                <!-- Status Indicator -->
-                <div class="status-indicator-container" id="statusIndicatorContainer" sse-swap="stage">
-                    <div class="status-icon pulse">📤</div>
-                    <div class="status-message">Initializing stream...</div>
-                    <div class="status-detail">Preparing connection...</div>
-                </div>
-                
-                <!-- Persona Result -->
-                <div class="result-section">
-                    <div class="result-section-title">AI-Generated Persona & Learning Recommendations</div>
-                    <div class="result-section-content persona-result">
-                        <span id="personaContent" sse-swap="token" hx-swap="beforeend"></span>
-                        <span class="typing-cursor" id="typingCursor"></span>
-                    </div>
-                </div>
-                
-                <!-- Completion Signal -->
-                <div sse-swap="done" hx-swap="innerHTML"></div>
-                
-                <!-- Error Signal -->
-                <div sse-swap="error" hx-swap="innerHTML"></div>
-                
+            <!-- Status Indicator -->
+            <div class="status-indicator-container" id="statusIndicatorContainer">
+                <div class="status-icon pulse">📤</div>
+                <div class="status-message">Initializing stream...</div>
+                <div class="status-detail">Preparing connection...</div>
             </div>
             
+            <!-- Persona Result -->
+            <div class="result-section">
+                <div class="result-section-title">AI-Generated Persona & Learning Recommendations</div>
+                <div class="result-section-content persona-result">
+                    <span id="personaContent"></span>
+                    <span class="typing-cursor" id="typingCursor"></span>
+                </div>
+            </div>
+            
+            <!-- Timestamp -->
+            <div class="result-timestamp" id="resultTimestamp" style="display: none;"></div>
+            
             <button class="btn-restart" onclick="window.location.reload()" id="restartBtn" style="display: none;">Generate Another Persona</button>
+            
+            <!-- Error Container -->
+            <div id="errorContainer"></div>
         </div>
+    </div>
+
+    <!-- SSE Connection Manager (Hidden) -->
+    <!-- We separate this so we can kill the connection by removing this element -->
+    <div id="sse-connection" hx-ext="sse" sse-connect="{stream_url}">
+        <div sse-swap="token" hx-target="#personaContent" hx-swap="beforeend"></div>
+        <div sse-swap="stage" hx-target="#statusIndicatorContainer" hx-swap="innerHTML"></div>
+        <div sse-swap="summary" hx-target="#summarySection" hx-swap="innerHTML"></div>
+        
+        <!-- When done, we replace this connection container to kill the stream -->
+        <div sse-swap="done" hx-target="#sse-connection" hx-swap="outerHTML"></div>
+        
+        <div sse-swap="error" hx-target="#errorContainer" hx-swap="innerHTML"></div>
     </div>
     """
 
@@ -196,9 +205,9 @@ data: <div class="status-icon rotate">🔄</div><div class="status-message">Proc
             text_summary = student_text(student)
             
             # Yield summary
+            # We combine lines to ensure data: prefix covers everything
             yield f"""event: summary
-data: <div class="result-section-title">Student Summary</div><div class="result-section-content student-summary">{text_summary}</div>
-<script>document.getElementById('summarySection').style.display='block';</script>
+data: <div class="result-section-title">Student Summary</div><div class="result-section-content student-summary">{text_summary}</div><script>document.getElementById('summarySection').style.display='block';</script>
 
 """
             
@@ -226,7 +235,8 @@ data: <div class="result-section-title">Student Summary</div><div class="result-
                     
                     if event['type'] == 'token':
                         content = event['content'].replace('\n', '<br>')
-                        yield f"event: token\ndata: {content}\n\n"
+                        # Wrap in span to preserve leading spaces from SSE trimming
+                        yield f"event: token\ndata: <span class='t'>{content}</span>\n\n"
                         
                     elif event['type'] == 'stage':
                         stage = event['stage']
@@ -250,8 +260,10 @@ data: <div class="status-icon pulse">⚡</div><div class="status-message">{msg}<
 data: <div class="status-icon complete">✅</div><div class="status-message">Complete!</div><div class="status-detail">Generated in {elapsed:.1f}s</div>
 
 """
+                            # Send done signal which will replace the connection container
+                            # This effectively closes the SSE connection
                             yield f"""event: done
-data: <div class="result-timestamp">Generated on {timestamp}</div><script>document.getElementById('successBadge').style.display='block';document.getElementById('restartBtn').style.display='block';document.getElementById('typingCursor').style.display='none';document.getElementById('resultTitle').innerText='Student Persona Generated Successfully';</script>
+data: <div id="sse-connection-closed"></div><script>document.getElementById('resultTimestamp').innerHTML = 'Generated on {timestamp}';document.getElementById('resultTimestamp').style.display='block';document.getElementById('successBadge').style.display='block';document.getElementById('restartBtn').style.display='block';document.getElementById('typingCursor').style.display='none';document.getElementById('resultTitle').innerText='Student Persona Generated Successfully';</script>
 
 """
                             break

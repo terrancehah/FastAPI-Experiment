@@ -56,23 +56,19 @@ def student_text(c: StudentInfo) -> str:
 
 def create_persona_prompt(text_summary: str) -> str:
     return f"""
-        
         You are an expert tutor creating a student persona to assess education needs.
 
         Student Information: {text_summary}
 
-        Based on the information above, generate a student persona summary. 
-        Describe the student’s possible personality, study preferences and life vision in one concise paragraph. 
-        Then from this persona, infer potential learning preferences with the famous 6-types of learning styles,
-        Feynman, Mnemonic, Visualisation, Contextual, Key points, and Repitition Learning Methods.
-        Explain the rationale and proper examples for each learning method in suitable headings and paragraphs.
+        ### INSTRUCTIONS:
+        1. Analyze the student's profile (subjects, age, gender) to infer their personality, study preferences, and life vision.
+        2. Determine the primary studying language based on this rule:
+           - If the student's name is in Malay and studying in SMK, conclude that Malay is the studying language.
+           - Otherwise, conclude that Malay is not the primary studying language.
+        3. Recommend 6 specific learning methods: Feynman, Mnemonic, Visualisation, Contextual, Key Points, and Spaced Repetition.
+        4. For each method, provide a rationale and a specific example related to their subjects.
         
-        Apply this preferred rule if conditions are met:
-        - If the student's name is in Malay and studying in SMK, conclude that Malay is the studying language.
-        - Otherwise, conclude that Malay is not the primary studying language.
-
-        Produce the output in English only, and do not add information not present in the student data.
-        
+        Think through this step-by-step before providing the final structured output.
         """
 
 # List of subjects for the form

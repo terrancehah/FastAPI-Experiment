@@ -8,16 +8,34 @@
       body {
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial,
           sans-serif;
-        max-width: 600px;
-        margin: 50px auto;
+        /* Body allows full width, containers restrict themselves */
+        width: 100%;
+        margin: 0;
         padding: 20px;
         background-color: #f5f5f5;
+        box-sizing: border-box;
       }
+      
+      /* Wrapper to center content */
+      #app-wrapper {
+          width: 100%;
+          display: flex;
+          justify-content: center;
+      }
+
       .form-container {
         background: white;
         padding: 30px;
         border-radius: 8px;
         box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        width: 100%;
+        max-width: 600px; /* Restrict form width */
+        margin-top: 50px;
+      }
+      
+      /* Results specific container style - allows wider width */
+      .results-wide {
+          max-width: 1200px !important;
       }
       h1 {
         color: #333;
@@ -454,6 +472,194 @@
           transform: translateY(-10px);
         }
       }
+
+      /* --- NEW DASHBOARD STYLES --- */
+      
+      /* Stepper */
+      .stepper-container {
+        width: 100%;
+        margin-bottom: 40px;
+        display: flex;
+        justify-content: center;
+      }
+      
+      .stepper {
+        display: flex;
+        justify-content: space-between; /* Spread out */
+        width: 100%;
+        max-width: 800px; /* Wider constraint */
+        position: relative;
+      }
+      
+      .stepper::before {
+        content: '';
+        position: absolute;
+        top: 20px; /* Center of circle (40px / 2) */
+        left: 0;
+        width: 100%;
+        height: 2px;
+        background: #e0e0e0;
+        z-index: 0;
+      }
+      
+      .step {
+        position: relative;
+        z-index: 1;
+        background: transparent; /* Fix: Remove solid background to avoid clipping line */
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        width: 100px; /* Fixed width for alignment */
+      }
+      
+      .step-circle {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: #f5f5f5; /* Match page bg so line is hidden behind it */
+        border: 2px solid #ccc;
+        color: #666;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        margin-bottom: 8px;
+        transition: all 0.3s;
+        z-index: 2; /* Sit on top of line */
+      }
+      
+      .step.active .step-circle {
+        border-color: #007bff;
+        color: white;
+        background: #007bff;
+        box-shadow: 0 0 0 4px rgba(0, 123, 255, 0.2);
+      }
+      
+      .step.completed .step-circle {
+        border-color: #28a745;
+        background: #28a745;
+        color: white;
+      }
+      
+      .step-label {
+        font-size: 14px;
+        color: #999;
+        font-weight: 500;
+        text-align: center;
+      }
+      
+      .step.active .step-label {
+        color: #007bff;
+        font-weight: 700;
+      }
+      
+      /* Student Summary Box (formerly AI Reasoning) */
+      .student-summary-box {
+        background: #e7f3ff; /* Light blue background */
+        border: 1px solid #007bff;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 30px;
+        font-size: 14px;
+        color: #004085;
+        line-height: 1.6;
+        display: none; /* Hidden by default, shown via JS */
+        animation: fadeIn 0.5s;
+      }
+      
+      .student-summary-box h4 {
+        margin: 0 0 12px 0;
+        font-size: 16px;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        color: #0056b3;
+      }
+      
+      @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+      }
+
+      /* Dashboard Grid */
+      .dashboard-grid {
+        display: grid;
+        grid-template-columns: 1fr; /* Mobile first: 1 column */
+        gap: 24px;
+        animation: slideUp 0.5s ease-out;
+      }
+      
+      @media (min-width: 768px) {
+        .dashboard-grid {
+          grid-template-columns: repeat(2, 1fr); /* Tablet/Desktop: 2 columns */
+        }
+        
+        /* Utility to span full width */
+        .full-width {
+            grid-column: 1 / -1;
+        }
+      }
+      
+      @keyframes slideUp {
+          from { opacity: 0; transform: translateY(20px); }
+          to { opacity: 1; transform: translateY(0); }
+      }
+
+      /* Cards */
+      .card {
+        background: white;
+        border-radius: 12px; /* Softer corners */
+        box-shadow: 0 4px 6px rgba(0,0,0,0.05), 0 1px 3px rgba(0,0,0,0.1);
+        border: 1px solid #eaedf0;
+        overflow: hidden;
+        transition: transform 0.2s, box-shadow 0.2s;
+        display: flex;
+        flex-direction: column;
+      }
+      
+      .card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 10px 15px rgba(0,0,0,0.1);
+      }
+      
+      .card-header {
+        background: #fff; /* Clean white header */
+        padding: 16px 20px;
+        font-weight: 700;
+        font-size: 16px;
+        color: #2d3748;
+        border-bottom: 1px solid #f0f0f0;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      
+      .card-header .icon {
+          font-size: 20px;
+      }
+      
+      .card-body {
+        padding: 20px;
+        font-size: 15px;
+        line-height: 1.7;
+        color: #4a5568;
+        flex: 1;
+      }
+      
+      /* Specific Card Accents */
+      .persona-card {
+          border-top: 4px solid #3182ce; /* Blue */
+      }
+      
+      .language-card {
+          border-top: 4px solid #805ad5; /* Purple */
+      }
+      
+      .method-card {
+          border-top: 4px solid #38a169; /* Green */
+      }
+
     </style>
   </head>
   <body>

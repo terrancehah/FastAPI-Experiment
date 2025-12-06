@@ -11,7 +11,7 @@ import json
 from datetime import datetime
 from typing import List, Optional
 from langchain_core.callbacks import AsyncCallbackHandler
-from models import StudentInfo
+from models import StudentInfo, PersonaAnalysis
 from utils import student_text, create_persona_prompt, SUBJECTS_LIST
 
 app = FastAPI()
@@ -120,34 +120,41 @@ async def htmx_setup(
     stream_url = f"/persona/stream-htmx?{query_string}"
     
     return f"""
-    <div class="results-container show" id="resultsContainer">
+    <div class="results-container show results-wide" id="resultsContainer">
         <div id="successContainer" style="display: block;">
-            <div class="success-badge" id="successBadge" style="display: none;">✓</div>
-            <h1 id="resultTitle">Generating Student Persona...</h1>
             
-            <!-- Summary Section -->
-            <div class="result-section" id="summarySection" style="display: none;">
-                <div class="result-section-title">Student Summary</div>
-                <div class="result-section-content student-summary"></div>
-            </div>
-
-            <!-- Status Indicator -->
-            <div class="status-indicator-container" id="statusIndicatorContainer">
-                <div class="status-icon pulse">📤</div>
-                <div class="status-message">Initializing stream...</div>
-                <div class="status-detail">Preparing connection...</div>
-            </div>
-            
-            <!-- Persona Result -->
-            <div class="result-section">
-                <div class="result-section-title">AI-Generated Persona & Learning Recommendations</div>
-                <div class="result-section-content persona-result">
-                    <span id="personaContent"></span>
-                    <span class="typing-cursor" id="typingCursor"></span>
+            <!-- Stepper Progress -->
+            <div class="stepper-container">
+                <div class="stepper">
+                    <div class="step completed" id="step-received">
+                        <div class="step-circle">1</div>
+                        <div class="step-label">Received</div>
+                    </div>
+                    <div class="step active" id="step-thinking">
+                        <div class="step-circle">2</div>
+                        <div class="step-label">Thinking</div>
+                    </div>
+                    <div class="step" id="step-generating">
+                        <div class="step-circle">3</div>
+                        <div class="step-label">Generating</div>
+                    </div>
+                    <div class="step" id="step-complete">
+                        <div class="step-circle">4</div>
+                        <div class="step-label">Complete</div>
+                    </div>
                 </div>
             </div>
+
+            <!-- Student Summary Box (Visible during Thinking) -->
+            <div id="studentSummaryBox" class="student-summary-box" style="display:none">
+                <h4><span class="icon">📄</span> Student Profile Summary</h4>
+                <div id="studentSummaryContent"></div>
+            </div>
             
-            <!-- Timestamp -->
+            <!-- Dashboard Grid Result -->
+            <div id="dashboardContainer"></div>
+            
+            <!-- Timestamp & Controls -->
             <div class="result-timestamp" id="resultTimestamp" style="display: none;"></div>
             
             <button class="btn-restart" onclick="window.location.reload()" id="restartBtn" style="display: none;">Generate Another Persona</button>
@@ -158,17 +165,30 @@ async def htmx_setup(
     </div>
 
     <!-- SSE Connection Manager (Hidden) -->
-    <!-- We separate this so we can kill the connection by removing this element -->
     <div id="sse-connection" hx-ext="sse" sse-connect="{stream_url}">
-        <div sse-swap="token" hx-target="#personaContent" hx-swap="beforeend"></div>
-        <div sse-swap="stage" hx-target="#statusIndicatorContainer" hx-swap="innerHTML"></div>
-        <div sse-swap="summary" hx-target="#summarySection" hx-swap="innerHTML"></div>
+        <!-- We use a custom script to handle the complex logic of sorting content into reasoning vs dashboard -->
+        <div sse-swap="token" hx-target="#dashboardContainer" hx-swap="beforeend"></div>
         
-        <!-- When done, we replace this connection container to kill the stream -->
+        <!-- CRITICAL FIX: We must swap the scripts into the DOM for them to execute -->
+        <div sse-swap="stage" hx-target="body" hx-swap="beforeend"></div> 
+        
+        <!-- Close stream when done -->
         <div sse-swap="done" hx-target="#sse-connection" hx-swap="outerHTML"></div>
-        
         <div sse-swap="error" hx-target="#errorContainer" hx-swap="innerHTML"></div>
     </div>
+
+    <script>
+        // Custom event listener for SSE stage updates to drive the stepper
+        document.body.addEventListener('htmx:sseMessage', function(e) {{
+            if (e.detail.type === 'stage') {{
+                // Parse the data manually since HTMX sse-swap handles the DOM swap but we need logic
+                // The data comes as HTML string <div...>...</div>. We can regex it or just assume sequence.
+                // Simpler: We update stepper based on message content or just timing. 
+                // Actually, best way is to have the server send a script to update UI.
+                // For now, let's rely on the server sending <script> tags in the events.
+            }}
+        }});
+    </script>
     """
 
 @app.get("/persona/stream-htmx")
@@ -185,9 +205,9 @@ async def generate_persona_stream_htmx(
 ):
     async def generate_stream():
         try:
-            # Yield initial stage
+            # 1. RECEIVED -> THINKING
             yield """event: stage
-data: <div class="status-icon rotate">🔄</div><div class="status-message">Processing student information...</div><div class="status-detail">Analyzing profile...</div>
+data: <script>document.getElementById('step-received').classList.add('completed'); document.getElementById('step-thinking').classList.add('active');</script>
 
 """
             
@@ -204,85 +224,90 @@ data: <div class="status-icon rotate">🔄</div><div class="status-message">Proc
             
             text_summary = student_text(student)
             
-            # Yield summary
-            # We combine lines to ensure data: prefix covers everything
-            yield f"""event: summary
-data: <div class="result-section-title">Student Summary</div><div class="result-section-content student-summary">{text_summary}</div><script>document.getElementById('summarySection').style.display='block';</script>
-
-"""
-            
-            event_queue = asyncio.Queue()
-            callback = SimpleStreamingCallback(event_queue)
-            
+            # Start Generation
             prompt_str = create_persona_prompt(text_summary)
-            chain = PromptTemplate.from_template(prompt_str) | llm
             
-            async def run_chain():
-                try:
-                    async for _ in chain.astream(
-                        {"text_summary": text_summary},
-                        config={'callbacks': [callback]}
-                    ):
-                        pass
-                except Exception as e:
-                    await event_queue.put({'type': 'error', 'message': str(e)})
-
-            task = asyncio.create_task(run_chain())
+            # --- PHASE 1: THINKING (Show Summary) ---
+            # Since native reasoning tokens are hidden, we display the input summary
+            # to give context while the user waits.
             
-            while not task.done() or not event_queue.empty():
-                try:
-                    event = await asyncio.wait_for(event_queue.get(), timeout=0.1)
-                    
-                    if event['type'] == 'token':
-                        content = event['content'].replace('\n', '<br>')
-                        # Wrap in span to preserve leading spaces from SSE trimming
-                        yield f"event: token\ndata: <span class='t'>{content}</span>\n\n"
-                        
-                    elif event['type'] == 'stage':
-                        stage = event['stage']
-                        msg = event.get('message', '')
-                        
-                        if stage == 'thinking':
-                            yield f"""event: stage
-data: <div class="status-icon pulse">🧠</div><div class="status-message">{msg}</div>
+            # Use json.dumps to safely escape the string for JS injection
+            summary_html = text_summary.replace('\n', '<br>')
+            safe_summary_json = json.dumps(summary_html)
+            
+            yield f"""event: stage
+data: <script>
+    console.log('Attempting to show student summary...');
+    var box = document.getElementById('studentSummaryBox');
+    var content = document.getElementById('studentSummaryContent');
+    if (box && content) {{
+        box.style.display = 'block';
+        content.innerHTML = '<strong>Summary being analyzed:</strong><br>' + {safe_summary_json} + '<br><br><em>Generating persona...</em>';
+        console.log('Summary shown.');
+    }} else {{
+        console.error('Could not find summary box elements');
+    }}
+</script>
 
 """
-                        elif stage == 'streaming':
-                            yield f"""event: stage
-data: <div class="status-icon pulse">⚡</div><div class="status-message">{msg}</div>
+            # Force flush to ensure UI updates before blocking operation
+            await asyncio.sleep(0.2)
+
+            # --- PHASE 2: STRUCTURED DATA (JSON) ---
+            # We use standard structured output. 
+            structured_llm = llm.with_structured_output(PersonaAnalysis)
+            
+            structured_chain = (
+                PromptTemplate.from_template("{prompt_str}")
+                | structured_llm
+            )
+            
+            # This will block while the model thinks/generates
+            analysis_result = await structured_chain.ainvoke({
+                "prompt_str": prompt_str
+            })
+            
+            # Update Stepper: Thinking -> Generating -> Complete
+            # We skip the "Generating" visual step practically since it arrives instantly after blocking
+            # AND we DELETE the summary box now.
+            yield """event: stage
+data: <script>
+document.getElementById('step-thinking').classList.remove('active'); 
+document.getElementById('step-thinking').classList.add('completed'); 
+document.getElementById('step-generating').classList.add('active');
+var summaryBox = document.getElementById('studentSummaryBox');
+if(summaryBox) summaryBox.remove();
+</script>
 
 """
-                        elif stage == 'complete':
-                            elapsed = event.get('elapsed', 0)
-                            timestamp = datetime.now().strftime("%B %d, %Y at %I:%M %p")
-                            
-                            yield f"""event: stage
-data: <div class="status-icon complete">✅</div><div class="status-message">Complete!</div><div class="status-detail">Generated in {elapsed:.1f}s</div>
+            
+            # --- PHASE 3: RENDER HTML ---
+            # We use Jinja2 to render the dashboard template with the data
+            dashboard_html = templates.get_template("_dashboard.html").render(analysis=analysis_result)
+            
+            # Minify slightly to send over wire
+            dashboard_html = dashboard_html.replace('\n', ' ')
+            
+            # Send the final HTML to the dashboard container
+            yield f"event: token\ndata: {dashboard_html}\n\n"
+            
+            # 4. COMPLETE
+            elapsed = 0 
+            timestamp = datetime.now().strftime("%B %d, %Y at %I:%M %p")
+                         
+            yield f"""event: done
+data: <div id="sse-connection-closed"></div><script>document.getElementById('step-generating').classList.remove('active'); document.getElementById('step-generating').classList.add('completed'); document.getElementById('step-complete').classList.add('completed'); document.getElementById('resultTimestamp').innerHTML = 'Generated on {timestamp}'; document.getElementById('resultTimestamp').style.display='block'; document.getElementById('restartBtn').style.display='block';</script>
 
 """
-                            # Send done signal which will replace the connection container
-                            # This effectively closes the SSE connection
-                            yield f"""event: done
-data: <div id="sse-connection-closed"></div><script>document.getElementById('resultTimestamp').innerHTML = 'Generated on {timestamp}';document.getElementById('resultTimestamp').style.display='block';document.getElementById('successBadge').style.display='block';document.getElementById('restartBtn').style.display='block';document.getElementById('typingCursor').style.display='none';document.getElementById('resultTitle').innerText='Student Persona Generated Successfully';</script>
+            
+            # 4. COMPLETE
+            elapsed = 0 # We could track this if needed
+            timestamp = datetime.now().strftime("%B %d, %Y at %I:%M %p")
+                         
+            yield f"""event: done
+data: <div id="sse-connection-closed"></div><script>document.getElementById('step-generating').classList.remove('active'); document.getElementById('step-generating').classList.add('completed'); document.getElementById('step-complete').classList.add('completed'); document.getElementById('resultTimestamp').innerHTML = 'Generated on {timestamp}'; document.getElementById('resultTimestamp').style.display='block'; document.getElementById('restartBtn').style.display='block';</script>
 
 """
-                            break
-                            
-                    elif event['type'] == 'error':
-                         yield f"""event: error
-data: <div class="error-container"><div class="error-title">Error</div><div class="error-message">{event['message']}</div></div>
-
-"""
-                         break
-                        
-                except asyncio.TimeoutError:
-                    continue
-                except Exception as e:
-                    yield f"""event: error
-data: Error: {str(e)}
-
-"""
-                    break
                     
         except Exception as e:
             yield f"""event: error

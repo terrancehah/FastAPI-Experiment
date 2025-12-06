@@ -1,0 +1,33 @@
+<div class="dashboard-grid">
+    <!-- Persona Card (Full Width) with Language Integrated -->
+    <div class="card persona-card full-width">
+        <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+            <span><span class="icon">👤</span> Student Persona</span>
+            <span class="badge-language" style="background: #f0f7ff; color: #007bff; padding: 4px 12px; border-radius: 20px; font-size: 12px; border: 1px solid #cce5ff;">
+                <span class="icon">🗣️</span> Prefers {{ analysis.language_preference }}
+            </span>
+        </div>
+        <div class="card-body">
+            {{ analysis.student_persona }}
+        </div>
+    </div>
+
+    <!-- Learning Methods -->
+    {% for method in analysis.learning_methods %}
+    <div class="card method-card">
+        <div class="card-header">
+            <span class="icon">{{ method.icon }}</span> {{ method.method_name }}
+        </div>
+        <div class="card-body">
+            <div style="margin-bottom: 12px;">
+                <strong>Rationale:</strong><br>
+                {{ method.rationale }}
+            </div>
+            <div>
+                <strong>Example:</strong><br>
+                {{ method.example }}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>

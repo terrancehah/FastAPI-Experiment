@@ -169,26 +169,13 @@ async def htmx_setup(
         <!-- We use a custom script to handle the complex logic of sorting content into reasoning vs dashboard -->
         <div sse-swap="token" hx-target="#dashboardContainer" hx-swap="beforeend"></div>
         
-        <!-- CRITICAL FIX: We must swap the scripts into the DOM for them to execute -->
-        <div sse-swap="stage" hx-target="body" hx-swap="beforeend"></div> 
+        <!-- Target for stage updates (scripts) -->
+        <div sse-swap="stage" style="display:none"></div> 
         
         <!-- Close stream when done -->
         <div sse-swap="done" hx-target="#sse-connection" hx-swap="outerHTML"></div>
         <div sse-swap="error" hx-target="#errorContainer" hx-swap="innerHTML"></div>
     </div>
-
-    <script>
-        // Custom event listener for SSE stage updates to drive the stepper
-        document.body.addEventListener('htmx:sseMessage', function(e) {{
-            if (e.detail.type === 'stage') {{
-                // Parse the data manually since HTMX sse-swap handles the DOM swap but we need logic
-                // The data comes as HTML string <div...>...</div>. We can regex it or just assume sequence.
-                // Simpler: We update stepper based on message content or just timing. 
-                // Actually, best way is to have the server send a script to update UI.
-                // For now, let's rely on the server sending <script> tags in the events.
-            }}
-        }});
-    </script>
     """
 
 @app.get("/persona/stream-htmx")
@@ -206,10 +193,7 @@ async def generate_persona_stream_htmx(
     async def generate_stream():
         try:
             # 1. RECEIVED -> THINKING
-            yield """event: stage
-data: <script>document.getElementById('step-received').classList.add('completed'); document.getElementById('step-thinking').classList.add('active');</script>
-
-"""
+            # Initial state is already set in HTML, so we just proceed to sending summary
             
             subjects_list = favourite_subjects or []
             student = StudentInfo(
@@ -231,25 +215,21 @@ data: <script>document.getElementById('step-received').classList.add('completed'
             # Since native reasoning tokens are hidden, we display the input summary
             # to give context while the user waits.
             
-            # Use json.dumps to safely escape the string for JS injection
             summary_html = text_summary.replace('\n', '<br>')
             safe_summary_json = json.dumps(summary_html)
             
-            yield f"""event: stage
-data: <script>
-    console.log('Attempting to show student summary...');
-    var box = document.getElementById('studentSummaryBox');
-    var content = document.getElementById('studentSummaryContent');
-    if (box && content) {{
-        box.style.display = 'block';
-        content.innerHTML = '<strong>Summary being analyzed:</strong><br>' + {safe_summary_json} + '<br><br><em>Generating persona...</em>';
-        console.log('Summary shown.');
-    }} else {{
-        console.error('Could not find summary box elements');
-    }}
-</script>
+            # Construct single-line script payload
+            script_content = (
+                f"var box = document.getElementById('studentSummaryBox'); "
+                f"var content = document.getElementById('studentSummaryContent'); "
+                f"if (box && content) {{ "
+                f"box.style.display = 'block'; "
+                f"content.innerHTML = '<strong>Summary being analyzed:</strong><br>' + {safe_summary_json} + '<br><br><em>Generating persona...</em>'; "
+                f"}}"
+            )
+            
+            yield f"event: stage\ndata: <script>{script_content}</script>\n\n"
 
-"""
             # Force flush to ensure UI updates before blocking operation
             await asyncio.sleep(0.2)
 
@@ -267,19 +247,15 @@ data: <script>
                 "prompt_str": prompt_str
             })
             
-            # Update Stepper: Thinking -> Generating -> Complete
-            # We skip the "Generating" visual step practically since it arrives instantly after blocking
-            # AND we DELETE the summary box now.
-            yield """event: stage
-data: <script>
-document.getElementById('step-thinking').classList.remove('active'); 
-document.getElementById('step-thinking').classList.add('completed'); 
-document.getElementById('step-generating').classList.add('active');
-var summaryBox = document.getElementById('studentSummaryBox');
-if(summaryBox) summaryBox.remove();
-</script>
-
-"""
+            # Update Stepper: Thinking -> Generating
+            script_generating = (
+                "document.getElementById('step-thinking').classList.remove('active'); "
+                "document.getElementById('step-thinking').classList.add('completed'); "
+                "document.getElementById('step-generating').classList.add('active'); "
+                "var summaryBox = document.getElementById('studentSummaryBox'); "
+                "if(summaryBox) summaryBox.style.display = 'none';"
+            )
+            yield f"event: stage\ndata: <script>{script_generating}</script>\n\n"
             
             # --- PHASE 3: RENDER HTML ---
             # We use Jinja2 to render the dashboard template with the data
@@ -294,18 +270,20 @@ if(summaryBox) summaryBox.remove();
             # 4. COMPLETE
             elapsed = 0 
             timestamp = datetime.now().strftime("%B %d, %Y at %I:%M %p")
-                         
-            yield f"""event: done
-data: <div id="sse-connection-closed"></div><script>document.getElementById('step-generating').classList.remove('active'); document.getElementById('step-generating').classList.add('completed'); document.getElementById('step-complete').classList.add('completed'); document.getElementById('resultTimestamp').innerHTML = 'Generated on {timestamp}'; document.getElementById('resultTimestamp').style.display='block'; document.getElementById('restartBtn').style.display='block';</script>
-
-"""
             
-            # 4. COMPLETE
-            elapsed = 0 # We could track this if needed
-            timestamp = datetime.now().strftime("%B %d, %Y at %I:%M %p")
+            # Send complete event to update UI
+            script_complete = (
+                "document.getElementById('step-generating').classList.remove('active'); "
+                "document.getElementById('step-generating').classList.add('completed'); "
+                "document.getElementById('step-complete').classList.add('completed'); "
+                f"document.getElementById('resultTimestamp').innerHTML = 'Generated on {timestamp}'; "
+                "document.getElementById('resultTimestamp').style.display='block'; "
+                "document.getElementById('restartBtn').style.display='block';"
+            )
+            yield f"event: stage\ndata: <script>{script_complete}</script>\n\n"
                          
             yield f"""event: done
-data: <div id="sse-connection-closed"></div><script>document.getElementById('step-generating').classList.remove('active'); document.getElementById('step-generating').classList.add('completed'); document.getElementById('step-complete').classList.add('completed'); document.getElementById('resultTimestamp').innerHTML = 'Generated on {timestamp}'; document.getElementById('resultTimestamp').style.display='block'; document.getElementById('restartBtn').style.display='block';</script>
+data: <div id="sse-connection-closed"></div>
 
 """
                     

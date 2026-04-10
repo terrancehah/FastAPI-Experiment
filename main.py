@@ -3,7 +3,8 @@ from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse, StreamingResponse
 from langchain_core.prompts import PromptTemplate
 from langchain_openai import ChatOpenAI
-from langfuse import observe
+from langfuse import get_client
+from langfuse.langchain import CallbackHandler as LangfuseCallbackHandler
 from dotenv import load_dotenv
 import os
 import asyncio
@@ -179,7 +180,6 @@ async def htmx_setup(
     """
 
 @app.get("/persona/stream-htmx")
-@observe()
 async def generate_persona_stream_htmx(
     request: Request,
     name: str = Query(...),
@@ -307,7 +307,6 @@ data: Error: {str(e)}
 # Streaming Endpoint
 # ----------------------
 @app.post("/persona/stream/")
-@observe()  # Langfuse observation decorator for monitoring
 async def generate_persona_stream(
     request: Request,
     name: str = Form(...),
@@ -352,6 +351,9 @@ async def generate_persona_stream(
             event_queue = asyncio.Queue()
             callback = SimpleStreamingCallback(event_queue)
             
+            # Initialize Langfuse LangChain callback handler for tracing
+            langfuse_handler = LangfuseCallbackHandler()
+            
             # Step 5: Build prompt
             prompt_str = create_persona_prompt(text_summary)
             
@@ -367,9 +369,11 @@ async def generate_persona_stream(
                     # We use astream but rely on the callback for events
                     # We iterate to ensure execution, but ignore the direct chunks
                     # as the callback handles them
+                    # Pass both callbacks: SimpleStreamingCallback for frontend streaming,
+                    # LangfuseCallbackHandler for LLM tracing (prompt, output, tokens, cost)
                     async for _ in chain.astream(
                         {"text_summary": text_summary},
-                        config={'callbacks': [callback]}
+                        config={'callbacks': [callback, langfuse_handler]}
                     ):
                         pass
                 except Exception as e:
@@ -378,9 +382,8 @@ async def generate_persona_stream(
                         'message': str(e)
                     })
                 finally:
-                    # Signal done if not already handled (though on_llm_end should handle it)
-                    # We can send a sentinel if needed, but on_llm_end is better
-                    pass
+                    # Flush Langfuse events in serverless environment
+                    get_client().flush()
 
             task = asyncio.create_task(run_chain())
             
